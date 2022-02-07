@@ -1,0 +1,482 @@
+---
+title: "SCF Quintile Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set working directory
+setwd("C:/Users/snabi/OneDrive - The Aspen Institute/Documents/Research/SCF_1989+2007+2019")
+
+# Load libraries
+library(tidyverse)
+library(ggplot2)
+library(spatstat)
+library(survey)
+library(magrittr)
+library(expss)
+library(weights)
+
+# Read in data
+scf_89_master <- read.csv("SCFP1989.csv")
+scf_89 <- scf_89_master
+
+scf_07_master <- read.csv("SCFP2007.csv")
+scf_07 <- scf_07_master
+
+scf_19_master <- read.csv("SCFP2019.csv")
+scf_19 <- scf_19_master
+
+# Disable scientific notation
+options(scipen = 999)
+
+
+# Functions # 
+
+# Faster quantile function
+weighted.quant <- function(var, weight, quantile) {
+  weighted.quantile(var, weight, probs = seq(0, 1, quantile))
+}
+
+
+# Get weighted net worth quantile breaks
+weighted_networth_quantiles <- function(var, weight, quantile) {
+  df <- data.frame(weighted.quant(var, weight, quantile))
+  return(c(df[,1]))
+}
+
+
+# Rename race categories
+scf_19$RACE[scf_19$RACE == 1] <- "White, non-Hispanic"
+scf_19$RACE[scf_19$RACE == 2] <- "Black, non-Hispanic"
+scf_19$RACE[scf_19$RACE == 3] <- "Hispanic"
+scf_19$RACE[scf_19$RACE == 5] <- "Other"
+
+```
+
+Create net worth quintiles for each year
+
+```{r quintiles}
+
+
+# 1989
+
+nw_quintile_breaks_89 <- c(weighted_networth_quantiles(scf_89$NETWORTH, 
+                                                  scf_89$WGT, 1/5))
+nw_quintile_breaks_89[1] <- nw_quintile_breaks_89[1] - 1
+scf_89$NETWORTH_quintiles <- cut(scf_89$NETWORTH,
+                            c(nw_quintile_breaks_89),
+                            labels = c("0-19.9", "20-39.9",
+                                   "40-59.9", "60-79.9", 
+                                   "80-100"))
+
+med_nw_89 <- scf_89 %>%
+  group_by(scf_89$NETWORTH_quintiles) %>%
+  summarise(nw = weighted.median(NETWORTH, WGT)/1000)
+
+
+# 2007 
+
+nw_quintile_breaks_07 <- c(weighted_networth_quantiles(scf_07$NETWORTH, 
+                                                  scf_07$WGT, 1/5))
+nw_quintile_breaks_07[1] <- nw_quintile_breaks_07[1] - 1
+scf_07$NETWORTH_quintiles <- cut(scf_07$NETWORTH,
+                            c(nw_quintile_breaks_07),
+                            labels = c("0-19.9", "20-39.9",
+                                   "40-59.9", "60-79.9", 
+                                   "80-100"))
+
+med_nw_07 <- scf_07 %>%
+  group_by(scf_07$NETWORTH_quintiles) %>%
+  summarise(nw = weighted.median(NETWORTH, WGT)/1000)
+
+
+# 2019 
+
+nw_quintile_breaks_19 <- c(weighted_networth_quantiles(scf_19$NETWORTH, 
+                                                  scf_19$WGT, 1/5))
+nw_quintile_breaks_19[1] <- nw_quintile_breaks_19[1] - 1
+scf_19$NETWORTH_quintiles <- cut(scf_19$NETWORTH,
+                            c(nw_quintile_breaks_19),
+                            labels = c("0-19.9", "20-39.9",
+                                   "40-59.9", "60-79.9", 
+                                   "80-100"))
+
+med_nw_19 <- scf_19 %>%
+  group_by(scf_19$NETWORTH_quintiles) %>%
+  summarise(nw = weighted.median(NETWORTH, WGT)/1000)
+
+
+```
+
+
+
+
+```{r Frequency of net worth quintiles}
+
+fre(scf_19$NETWORTH_quintiles, weight = scf_19$WGT)
+
+scf_19$NETWORTH_quintiles2 <- cut(scf_19$NETWORTH,
+                            c(quantile(scf_19$NETWORTH, probs = seq(0, 1, 1/5))),
+                            labels = c("0-19.9", "20-39.9",
+                                   "40-59.9", "60-79.9", 
+                                   "80-100"))
+
+range(scf_19$NETWORTH)
+
+nw_quintile_breaks_19
+
+quantile(scf_19$NETWORTH, probs = seq(0, 1, 1/5))
+
+sum(scf_19$NETWORTH*scf_19$WGT)
+
+bottom_quint <- filter(scf_19, 
+                       scf_19$NETWORTH_quintiles == "0-19.9")
+
+bottom_40pct <- filter(scf_19, 
+                       scf_19$NETWORTH_quintiles == "0-19.9" |
+                         scf_19$NETWORTH_quintiles == "20-39.9")
+
+a <- sum(bottom_quint$ASSET*bottom_quint$WGT)
+
+a
+
+c <- sum(bottom_40pct$ASSET*bottom_40pct$WGT)
+
+b <- sum(scf_19$ASSET*scf_19$WGT)
+
+b
+
+c/b*100
+
+range(bottom_quint$NETWORTH)
+
+weighted.median(bottom_quint$NETWORTH, bottom_quint$WGT)
+
+range(bottom_quint$NETWORTH*bottom_quint$WGT)
+
+
+
+# Breakdown by race 
+
+race_bottomquint <- bottom_quint %>%
+  group_by(RACE) %>%
+  summarise(prop = wpct(RACE, WGT))
+
+race_quint <- scf_19 %>%
+  group_by(scf_19$NETWORTH_quintiles) %>%
+  summarise(fre = wpct(RACE, WGT))
+
+race_quint2 <- scf_19 %>%
+  group_by(scf_19$RACE, scf_19$NETWORTH_quintiles2) %>%
+  summarise(fre = n())
+
+```
+
+
+
+2019 asset quintiles: median and % holding 
+
+```{r 2019 assets}
+
+# Create new asset categories 
+
+securities <- select(scf_19, c(NMMF, SAVBND, STOCKS, BOND, WGT))
+other_fin <- select(scf_19, c(CDS, CASHLI, OTHMA, OTHFIN, WGT))
+nonres <- select(scf_19, c(ORESRE, NNRESRE, WGT))
+
+scf_19$SECURITIES <- rowSums(securities[1:4])
+scf_19$OTHFIN_COMPLETE <- rowSums(other_fin[1:4])
+scf_19$NONRES <- rowSums(nonres[1:2])
+
+assets_med_19 <- scf_19 %>%
+         group_by(NETWORTH_quintiles) %>%
+         summarise(transaction = weighted.median(LIQ, WGT)/1000,
+                   securities = weighted.median(SECURITIES, WGT)/1000,
+                   ret = weighted.median(RETQLIQ, WGT)/1000,
+                   othfin = weighted.median(OTHFIN_COMPLETE, WGT)/1000,
+                   vehic = weighted.median(VEHIC, WGT)/1000,
+                   res = weighted.median(HOUSES, WGT)/1000,
+                   nonres = weighted.median(NONRES, WGT)/1000,
+                   business = weighted.median(BUS, WGT)/1000,
+                   othnfin = weighted.median(OTHNFIN, WGT)/1000)
+
+assets_pct <- scf_19 %>%
+         group_by(NETWORTH_quintiles) %>%
+         summarise(transaction = sum(LIQ*WGT)/sum(ASSET*WGT),
+                   securities = sum(SECURITIES*WGT)/sum(ASSET*WGT),
+                   ret = sum(RETQLIQ*WGT)/sum(ASSET*WGT),
+                   othfin = sum(OTHFIN_COMPLETE*WGT)/sum(ASSET*WGT),
+                   vehic = sum(VEHIC*WGT)/sum(ASSET*WGT),
+                   res = sum(HOUSES*WGT)/sum(ASSET*WGT),
+                   nonres = sum(NONRES*WGT)/sum(ASSET*WGT),
+                   business = sum(BUS*WGT)/sum(ASSET*WGT),
+                   othnfin = sum(OTHNFIN*WGT)/sum(ASSET*WGT))
+
+
+assets_pct <- scf_19 %>%
+         group_by(NETWORTH_quintiles) %>%
+         summarise(transaction = sum(LIQ > 0)/n(),
+                   securities = sum(SECURITIES > 0)/n(),
+                   ret = sum(RETQLIQ > 0)/n(),
+                   othfin = sum(OTHFIN_COMPLETE > 0)/n(),
+                   vehic = sum(VEHIC > 0)/n(),
+                   res = sum(HOUSES > 0)/n(),
+                   nonres = sum(NONRES > 0)/n(),
+                   business = sum(BUS > 0)/n(),
+                   othnfin = sum(OTHNFIN > 0)/n())
+
+assets_count <- scf_19 %>%
+         group_by(NETWORTH_quintiles) %>%
+         summarise(transaction = sum(LIQ*WGT > 0),
+                   securities = sum(SECURITIES*WGT > 0),
+                   ret = sum(RETQLIQ*WGT > 0),
+                   othfin = sum(OTHFIN_COMPLETE*WGT > 0),
+                   vehic = sum(VEHIC*WGT > 0),
+                   res = sum(HOUSES*WGT > 0),
+                   nonres = sum(NONRES*WGT > 0),
+                   business = sum(BUS*WGT > 0),
+                   othnfin = sum(OTHNFIN*WGT > 0))
+
+
+sum(scf_19$LIQ*scf_19$WGT > 0)
+
+sum(scf_19$BUS > 0)/nrow(scf_19)
+
+
+```
+
+
+```{r assets conditional on holding}
+
+
+scf_19_vehic <- filter(scf_19, scf_19$VEHIC > 0)
+vehic_assets <- scf_19_vehic %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(med = weighted.median(VEHIC, WGT)/1000)
+
+scf_19_bus <- filter(scf_19, scf_19$BUS > 0)
+bus_equity <- scf_19_bus %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(BUS, WGT)/1000)
+
+scf_19_tra <- filter(scf_19, scf_19$LIQ > 0)
+tra <- scf_19_tra %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(LIQ, WGT)/1000)
+
+scf_19_sec <- filter(scf_19, scf_19$SECURITIES > 0)
+sec <- scf_19_sec %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(SECURITIES, WGT)/1000)
+
+scf_19_ret <- filter(scf_19, scf_19$RETQLIQ > 0)
+ret <- scf_19_ret %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(RETQLIQ, WGT)/1000)
+
+scf_19_ofi <- filter(scf_19, scf_19$OTHFIN_COMPLETE > 0)
+ofi <- scf_19_ofi %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(OTHFIN_COMPLETE, WGT)/1000)
+
+scf_19_res <- filter(scf_19, scf_19$HOUSES > 0)
+res <- scf_19_res %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(HOUSES, WGT)/1000)
+
+scf_19_opr <- filter(scf_19, scf_19$NONRES > 0)
+opr <- scf_19_opr %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(NONRES, WGT)/1000)
+
+scf_19_onf <- filter(scf_19, scf_19$OTHNFIN > 0)
+onf <- scf_19_onf %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(OTHNFIN, WGT)/1000)
+```
+
+
+
+2019 debt by quintile: medians and % holding 
+
+
+```{r debt}
+
+otherdebt <- scf_19 %>%
+  select(OTHLOC, OTH_INST, ODEBT)
+
+scf_19$OTHDBT <- rowSums(otherdebt)
+
+debt_med <- scf_19 %>%
+         group_by(NETWORTH_quintiles) %>%
+         summarise(res = weighted.median(MRTHEL, WGT)/1000,
+                   nonprime = weighted.median(RESDBT, WGT)/1000,
+                   ccbal = weighted.median(CCBAL, WGT)/1000,
+                   educ = weighted.median(EDN_INST, WGT)/1000,
+                   vehic = weighted.median(VEH_INST, WGT)/1000,
+                   othdebt = weighted.median(OTHDBT, WGT)/1000)
+
+
+debt_pct <- scf_19 %>%
+         group_by(NETWORTH_quintiles) %>%
+         summarise(res = sum(MRTHEL*WGT > 0)/n(),
+                   nonprime = sum(RESDBT*WGT > 0)/n(),
+                   ccbal = sum(CCBAL*WGT > 0)/n(),
+                   educ = sum(EDN_INST*WGT > 0)/n(),
+                   vehic = sum(VEH_INST*WGT > 0)/n(),
+                   othdebt = sum(OTHDBT*WGT > 0)/n())
+
+```
+
+```{r debt among those holding it}
+
+
+scf_19_res <- filter(scf_19, scf_19$MRTHEL > 0)
+res_debt <- scf_19_res %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(MRTHEL, WGT)/1000,
+            n = n())
+
+scf_19_nonprime <- filter(scf_19, scf_19$RESDBT > 0)
+nonprime_debt <- scf_19_nonprime %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(RESDBT, WGT)/1000,
+            n = n())
+
+scf_19_ccbal <- filter(scf_19, scf_19$CCBAL > 0)
+ccbal_debt <- scf_19_ccbal %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(CCBAL, WGT)/1000,
+            n = n())
+
+scf_19_veh <- filter(scf_19, scf_19$VEH_INST > 0)
+veh_debt <- scf_19_veh %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(VEH_INST, WGT)/1000,
+            n = n())
+
+scf_19_edu <- filter(scf_19, scf_19$EDN_INST > 0)
+edu_debt <- scf_19_edu %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(EDN_INST, WGT)/1000,
+            n = n())
+
+scf_19_oth <- filter(scf_19, scf_19$OTHDBT > 0)
+oth_debt <- scf_19_oth %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(median_equity = weighted.median(OTHDBT, WGT)/1000,
+            n = n())
+
+```
+
+
+
+
+```{r negative net worth breakdown}
+
+# Create income quintiles
+
+inc_quintile_breaks_19 <- c(weighted_networth_quantiles(scf_19$INCOME, 
+                                                  scf_19$WGT, 1/5))
+inc_quintile_breaks_19[1] <- inc_quintile_breaks_19[1] - 1
+scf_19$INCOME_quintiles <- cut(scf_19$INCOME,
+                            c(inc_quintile_breaks_19),
+                            labels = c("0-19.9", "20-39.9",
+                                   "40-59.9", "60-79.9", 
+                                   "80-100"))
+
+neg_nw <- filter(scf_19, scf_19$NETWORTH < 0)
+
+neg_nw_count <- neg_nw %>%
+  group_by(INCOME_quintiles) %>%
+  summarise(median_debt = weighted.median(DEBT, WGT)/1000,
+            median_assets = weighted.median(ASSET, WGT)/1000,
+            median_nw = weighted.median(NETWORTH, WGT)/1000)
+
+neg_nw_count$prop <- wpct(neg_nw$INCOME_quintiles, neg_nw$WGT)
+
+write.csv(neg_nw_count, paste(getwd(), 
+                '\\neg_nw_count.csv', 
+                sep=''))
+
+
+
+# Total debt share 
+
+all_debt <- select(neg_nw, RESDBT, CCBAL, EDN_INST, VEH_INST, OTHDBT, WGT)
+
+w_all_debt <- apply(all_debt, 2, function(x,w) {x*w}, w = all_debt$WGT)
+
+totals <- apply(w_all_debt, 2, sum)
+
+totals[1:5]
+
+#w_all_debt
+
+# Asset mix
+
+assets_negnw <- select(neg_nw, LIQ, RETQLIQ, OTHFIN, SECURITIES, 
+                     VEHIC, HOUSES, BUS, OTHNFIN, NONRES, WGT)
+
+prop <- function(x) {
+  sum(x > 0)/length(x)
+}
+
+new_wpct <- function(x, w) {
+  wpct(x > 0, w)
+  }
+
+
+# Assets
+
+assets_negnw <- data.frame(med = apply(assets_negnw, 
+                                       2, 
+                                       weighted.median, 
+                                       w = assets_negnw$WGT),
+                           prop = apply(assets_negnw, 2, new_wpct, 
+                                        w = assets_negnw$WGT))
+
+write.csv(assets_negnw,  paste(getwd(), 
+                '\\assets_negnw.csv', 
+                sep=''))
+
+
+
+# Debt
+
+debt_negnw <- select(neg_nw, RESDBT, CCBAL, EDN_INST, VEH_INST, OTHDBT, WGT)
+
+
+debt_negnw <- data.frame(med = apply(debt_negnw,
+                                     2,
+                                     weighted.median,
+                                     w = debt_negnw$WGT),
+                         prop = apply(debt_negnw, 2, new_wpct, 
+                                      w = debt_negnw$WGT))
+
+
+write.csv(debt_negnw,  paste(getwd(), 
+                '\\debt_negnw.csv', 
+                sep=''))
+
+
+```
+
+
+
+```{r median net worth of people with business}
+
+
+with_bus <- filter(scf_19, scf_19$BUS > 0)
+
+biz_nw_quintile <- with_bus %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(med = weighted.median(NETWORTH, WGT))
+  
+
+
+```
+
+
