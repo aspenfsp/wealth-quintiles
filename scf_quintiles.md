@@ -1,76 +1,14 @@
----
-title: "Survey of Consumer Finances Net Worth Quintile Analysis"
-author: Shehryar Nabi, Senior Research Associate, Aspen Institute Financial Security Program
-output: github_document
----
+Survey of Consumer Finances Net Worth Quintile Analysis
+================
+Shehryar Nabi, Senior Research Associate, Aspen Institute Financial
+Security Program
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## New asset and debt categories
 
-# Set working directory
-setwd("C:/Users/snabi/OneDrive - The Aspen Institute/Documents/Research/SCF_1989+2007+2019")
+I first combine existing asset and debt types into new categories to
+simplify the portfolio analysis.
 
-# Load libraries
-library(tidyverse)
-library(ggplot2)
-library(spatstat)
-library(survey)
-library(magrittr)
-library(expss)
-library(weights)
-
-# Read in data
-scf_89_master <- read.csv("SCFP1989.csv")
-scf_89 <- scf_89_master
-
-scf_07_master <- read.csv("SCFP2007.csv")
-scf_07 <- scf_07_master
-
-scf_19_master <- read.csv("SCFP2019.csv")
-scf_19 <- scf_19_master
-
-# Disable scientific notation
-options(scipen = 999)
-
-
-# Functions # 
-
-# Faster quantile function
-weighted.quant <- function(var, weight, quantile) {
-  weighted.quantile(var, weight, probs = seq(0, 1, quantile))
-}
-
-
-# Get weighted net worth quantile breaks
-weighted_networth_quantiles <- function(var, weight, quantile) {
-  df <- data.frame(weighted.quant(var, weight, quantile))
-  return(c(df[,1]))
-}
-
-
-# Rename race categories
-scf_19$RACE[scf_19$RACE == 1] <- "White, non-Hispanic"
-scf_19$RACE[scf_19$RACE == 2] <- "Black, non-Hispanic"
-scf_19$RACE[scf_19$RACE == 3] <- "Hispanic"
-scf_19$RACE[scf_19$RACE == 5] <- "Other"
-
-
-# Get SCF nw breaks 
-scf_19$nw_scf_breaks <- cut(scf_19$NETWORTH,
-    c(-955502, 12410, 121760, 404100, 1218737, 1967199000),
-    labels = c("Less than 25", "25-49.9",
-                "50-74.9", "75-89.9", 
-                "90-100"), na.rm = TRUE)
-
-```
-
-
-## New asset and debt categories 
-
-I first combine existing asset and debt types into new categories to simplify the portfolio analysis. 
-
-```{r assets_debt}
-
+``` r
 # Create new asset categories 
 
 securities <- select(scf_19, c(NMMF, SAVBND, STOCKS, BOND, WGT))
@@ -88,16 +26,14 @@ otherdebt <- scf_19 %>%
   select(OTHLOC, OTH_INST, ODEBT)
 
 scf_19$OTHDBT <- rowSums(otherdebt)
-
 ```
-
 
 ## Median net worth by quintile for each year
 
-After identifying the net worth quintiles, I calculate the median net worth by quintile for 1989, 2007, and 2019.  
+After identifying the net worth quintiles, I calculate the median net
+worth by quintile for 1989, 2007, and 2019.
 
-```{r quintiles}
-
+``` r
 # 1989 (below procedure repeated for each year)
 
 # Adding net worth quintile ranges
@@ -148,16 +84,14 @@ scf_19$NETWORTH_quintiles <- cut(scf_19$NETWORTH,
 med_nw_19 <- scf_19 %>%
   group_by(scf_19$NETWORTH_quintiles) %>%
   summarise(nw = weighted.median(NETWORTH, WGT)/1000)
-
 ```
-
 
 ## Asset ownership and value by type and net worth quintile
 
-I find the median value and prevalence (% holding any) of assets in 2019 broken down by type and for each net worth quintile. 
+I find the median value and prevalence (% holding any) of assets in 2019
+broken down by type and for each net worth quintile.
 
-```{r 2019 assets}
-
+``` r
 # Median value
 
 assets_med_19 <- scf_19 %>%
@@ -186,16 +120,14 @@ assets_pct <- scf_19 %>%
                    nonres = sum(NONRES > 0)/n(),
                    business = sum(BUS > 0)/n(),
                    othnfin = sum(OTHNFIN > 0)/n())
-
 ```
-
 
 ## Median value of assets conditional on having them
 
-For each asset type, I first isolate households that own it and then calculate its median value for each net worth quintile.  
+For each asset type, I first isolate households that own it and then
+calculate its median value for each net worth quintile.
 
-```{r assets conditional on holding}
-
+``` r
 # Isolating those who own the asset 
 
 scf_19_vehic <- filter(scf_19, scf_19$VEHIC > 0)
@@ -248,17 +180,14 @@ scf_19_onf <- filter(scf_19, scf_19$OTHNFIN > 0)
 onf <- scf_19_onf %>%
   group_by(NETWORTH_quintiles) %>%
   summarise(median_equity = weighted.median(OTHNFIN, WGT)/1000)
-
 ```
-
 
 ## Debt ownership and value by type and net worth quintile
 
-I find the % holding and median value of debt by type and net worth quintile for 2019. 
+I find the % holding and median value of debt by type and net worth
+quintile for 2019.
 
-
-```{r debt}
-
+``` r
 debt_med <- scf_19 %>%
          group_by(NETWORTH_quintiles) %>%
          summarise(res = weighted.median(MRTHEL, WGT)/1000,
@@ -277,15 +206,11 @@ debt_pct <- scf_19 %>%
                    educ = sum(EDN_INST > 0)/n(),
                    vehic = sum(VEH_INST > 0)/n(),
                    othdebt = sum(OTHDBT > 0)/n())
-
 ```
-
 
 ## Median value of debts conditional on having them
 
-
-```{r debt among those holding it}
-
+``` r
 # Same process as above to calculate asset value conditional on holding
 
 scf_19_res <- filter(scf_19, scf_19$MRTHEL > 0)
@@ -323,24 +248,17 @@ oth_debt <- scf_19_oth %>%
   group_by(NETWORTH_quintiles) %>%
   summarise(median_equity = weighted.median(OTHDBT, WGT)/1000,
             n = n())
-
 ```
-
 
 ## Median net worth of people with businesses by net worth quintile
 
-Using a similar process as above, I isolate business owners to find their median wealth by net worth quintile. 
+Using a similar process as above, I isolate business owners to find
+their median wealth by net worth quintile.
 
-```{r median net worth of people with business}
-
-
+``` r
 with_bus <- filter(scf_19, scf_19$BUS > 0)
 
 biz_nw_quintile <- with_bus %>%
   group_by(NETWORTH_quintiles) %>%
   summarise(med = weighted.median(NETWORTH, WGT))
-  
-
 ```
-
-
