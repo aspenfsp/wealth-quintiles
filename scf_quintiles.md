@@ -3,6 +3,8 @@ Survey of Consumer Finances Net Worth Quintile Analysis
 Shehryar Nabi, Senior Research Associate, Aspen Institute Financial
 Security Program
 
+# Solutions Scan
+
 ## New asset and debt categories
 
 I first combine existing asset and debt types into new categories to
@@ -111,15 +113,15 @@ assets_med_19 <- scf_19 %>%
 
 assets_pct <- scf_19 %>%
          group_by(NETWORTH_quintiles) %>%
-         summarise(transaction = sum(LIQ > 0)/n(),
-                   securities = sum(SECURITIES > 0)/n(),
-                   ret = sum(RETQLIQ > 0)/n(),
-                   othfin = sum(OTHFIN_COMPLETE > 0)/n(),
-                   vehic = sum(VEHIC > 0)/n(),
-                   res = sum(HOUSES > 0)/n(),
-                   nonres = sum(NONRES > 0)/n(),
-                   business = sum(BUS > 0)/n(),
-                   othnfin = sum(OTHNFIN > 0)/n())
+         summarise(transaction = wpct(LIQ > 0)[1],
+                   securities = wpct(SECURITIES > 0)[1],
+                   ret = wpct(RETQLIQ > 0)[1],
+                   othfin = wpct(OTHFIN_COMPLETE > 0)[1],
+                   vehic = wpct(VEHIC > 0)[1],
+                   res = wpct(HOUSES > 0)[1],
+                   nonres = wpct(NONRES > 0)[1],
+                   business = wpct(BUS > 0)[1],
+                   othnfin = wpct(OTHNFIN > 0)[1])
 ```
 
 ## Median value of assets conditional on having them
@@ -200,12 +202,17 @@ debt_med <- scf_19 %>%
 
 debt_pct <- scf_19 %>%
          group_by(NETWORTH_quintiles) %>%
-         summarise(res = sum(MRTHEL > 0)/n(),
-                   nonprime = sum(RESDBT > 0)/n(),
-                   ccbal = sum(CCBAL > 0)/n(),
-                   educ = sum(EDN_INST > 0)/n(),
-                   vehic = sum(VEH_INST > 0)/n(),
-                   othdebt = sum(OTHDBT > 0)/n())
+         summarise(res = wpct(MRTHEL > 0)[1],
+                   nonprime = wpct(RESDBT > 0)[1],
+                   ccbal = wpct(CCBAL > 0)[1],
+                   educ = wpct(EDN_INST > 0)[1],
+                   vehic = wpct(VEH_INST > 0)[1],
+                   othdebt = wpct(OTHDBT > 0)[1])
+
+
+write.csv(debt_pct, paste(getwd(), 
+                '\\debt_pct.csv', 
+                sep=''))
 ```
 
 ## Median value of debts conditional on having them
@@ -216,31 +223,31 @@ debt_pct <- scf_19 %>%
 scf_19_res <- filter(scf_19, scf_19$MRTHEL > 0)
 res_debt <- scf_19_res %>%
   group_by(NETWORTH_quintiles) %>%
-  summarise(median_equity = weighted.median(MRTHEL, WGT)/1000,
+  summarise(median_equity = weighted.median(MRTHEL, WGT),
             n = n())
 
 scf_19_nonprime <- filter(scf_19, scf_19$RESDBT > 0)
 nonprime_debt <- scf_19_nonprime %>%
   group_by(NETWORTH_quintiles) %>%
-  summarise(median_equity = weighted.median(RESDBT, WGT)/1000,
+  summarise(median_equity = weighted.median(RESDBT, WGT),
             n = n())
 
 scf_19_ccbal <- filter(scf_19, scf_19$CCBAL > 0)
 ccbal_debt <- scf_19_ccbal %>%
   group_by(NETWORTH_quintiles) %>%
-  summarise(median_equity = weighted.median(CCBAL, WGT)/1000,
+  summarise(median_equity = weighted.median(CCBAL, WGT),
             n = n())
 
 scf_19_veh <- filter(scf_19, scf_19$VEH_INST > 0)
 veh_debt <- scf_19_veh %>%
   group_by(NETWORTH_quintiles) %>%
-  summarise(median_equity = weighted.median(VEH_INST, WGT)/1000,
+  summarise(median_equity = weighted.median(VEH_INST, WGT),
             n = n())
 
 scf_19_edu <- filter(scf_19, scf_19$EDN_INST > 0)
 edu_debt <- scf_19_edu %>%
   group_by(NETWORTH_quintiles) %>%
-  summarise(median_equity = weighted.median(EDN_INST, WGT)/1000,
+  summarise(median_equity = weighted.median(EDN_INST, WGT),
             n = n())
 
 scf_19_oth <- filter(scf_19, scf_19$OTHDBT > 0)
@@ -261,4 +268,83 @@ with_bus <- filter(scf_19, scf_19$BUS > 0)
 biz_nw_quintile <- with_bus %>%
   group_by(NETWORTH_quintiles) %>%
   summarise(med = weighted.median(NETWORTH, WGT))
+
+biz_value_quintile <- with_bus %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(med = weighted.median(BUS, WGT))
+
+biz_pct_quintile <- scf_19 %>%
+  group_by(NETWORTH_quintiles) %>%
+  summarise(pct = wpct(BUS > 0, WGT)[1])
+```
+
+# Supplemental Figures
+
+## 20-60-20 median debt values and holding rates
+
+I calculate weighted median debt values and holding rates for the bottom
+20%, middle 60%, and top 20% of households.
+
+``` r
+debt_med_bmt <- scf_19 %>%
+         group_by(nw_bmt_breaks) %>%
+         summarise(res = weighted.median(MRTHEL, WGT)/1000,
+                   nonprime = weighted.median(RESDBT, WGT)/1000,
+                   ccbal = weighted.median(CCBAL, WGT)/1000,
+                   educ = weighted.median(EDN_INST, WGT)/1000,
+                   vehic = weighted.median(VEH_INST, WGT)/1000,
+                   othdebt = weighted.median(OTHDBT, WGT)/1000)
+
+
+hold_debt_bmt <- scf_19 %>%
+  group_by(nw_bmt_breaks) %>%
+  summarise(hold_mort = wpct(MRTHEL > 0, WGT)[1],
+            hold_edu = wpct(EDN_INST > 0, WGT)[1],
+            hold_ccbal = wpct(CCBAL > 0 , WGT)[1],
+            hold_auto = wpct(VEH_INST > 0, WGT)[1])
+```
+
+## 20-60-20 net worth by year
+
+``` r
+# 1989
+
+# weighted.quantile(scf_89$NETWORTH, scf_89$WGT, probs = .8)
+
+scf_89$nw_bmt_breaks <- cut(scf_89$NETWORTH,
+    c(-100000000, 4375.7, 376060.3, 1967199002),
+    labels = c("Bottom 20%", "Middle 60%",
+                "Top 20%"), na.rm = TRUE)
+
+med_nw_89_bmt <- scf_89 %>%
+  group_by(nw_bmt_breaks) %>%
+  summarise(weighted.median(NETWORTH, WGT))
+
+
+# 2007
+
+# weighted.quantile(scf_07$NETWORTH, scf_07$WGT, probs = 0)
+
+scf_07$nw_bmt_breaks <- cut(scf_07$NETWORTH,
+    c(-684740.4, 9019.158, 613378.7, 1967199002),
+    labels = c("Bottom 20%", "Middle 60%",
+                "Top 20%"), na.rm = TRUE)
+
+med_nw_07_bmt <- scf_07 %>%
+  group_by(nw_bmt_breaks) %>%
+  summarise(weighted.median(NETWORTH, WGT))
+
+
+# 2019
+
+# weighted.quantile(scf_19$NETWORTH, scf_19$WGT, probs = .8)
+
+scf_19$nw_bmt_breaks <- cut(scf_19$NETWORTH,
+    c(-1055500, 6370, 557160, 2967199002),
+    labels = c("Bottom 20%", "Middle 60%",
+                "Top 20%"), na.rm = TRUE)
+
+med_nw_19_bmt <- scf_19 %>%
+  group_by(nw_bmt_breaks) %>%
+  summarise(weighted.median(NETWORTH, WGT))
 ```
