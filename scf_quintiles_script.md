@@ -302,11 +302,6 @@ hold_debt_bmt <- scf_19 %>%
             hold_edu = wpct(EDN_INST > 0, WGT)[1],
             hold_ccbal = wpct(CCBAL > 0 , WGT)[1],
             hold_auto = wpct(VEH_INST > 0, WGT)[1])
-
-
-write.csv(hold_debt_bmt, paste(getwd(), 
-                '\\hold_debt_bmt.csv', 
-                sep=''))
 ```
 
 ## 20-60-20 net worth by year
