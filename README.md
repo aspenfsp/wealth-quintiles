@@ -4,4 +4,4 @@ This repository includes code written in R that analyzes data from the 1989, 200
 
 SCF data was downloaded from the Federal Reserve's website: https://www.federalreserve.gov/econres/scfindex.htm/.
 
-The main estimates are contained in a presentable format in the file, "scf_quintiles". For the script that generated this file, see "scf_quintiles_script".
+The main estimates are contained in a presentable format in the file, "scf_quintiles_script.md". For the script that generated this file, see "scf_quintiles_script.rmd".
